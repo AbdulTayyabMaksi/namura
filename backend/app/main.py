@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import process_message
-from app.agents.scheme import discover_schemes
+from app.services.health_score import compute_financial_health_score
 from app.database import get_db, init_db
 from app.db_seed import seed_database
 from app.models.schemas import (
@@ -140,10 +140,22 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db)):
 
     history = twin_store.get_chat_history(db, req.user_id, limit=10)
     twin_store.save_chat_message(db, req.user_id, "user", req.message)
+    skip_nudge = twin_store.has_nudge_today(db, req.user_id)
     response = await process_message(
-        twin, req.message, req.voice_mode, chat_history=history
+        twin,
+        req.message,
+        req.voice_mode,
+        chat_history=history,
+        skip_nudge=skip_nudge,
     )
-    twin_store.update(db, req.user_id, {"behavioral_archetype": twin.behavioral_archetype})
+    twin_store.update(
+        db,
+        req.user_id,
+        {
+            "behavioral_archetype": twin.behavioral_archetype,
+            "behavioral_score": min(1.0, twin.behavioral_score + 0.01),
+        },
+    )
     twin_store.save_chat_message(
         db,
         req.user_id,
@@ -152,6 +164,7 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db)):
         metadata={
             "agents_used": response.agents_used,
             "has_scenarios": bool(response.scenarios),
+            "has_nudge": bool(response.nudge),
         },
     )
     return response
@@ -177,6 +190,14 @@ async def simulate(req: SimulateRequest, db: Session = Depends(get_db)):
     }
     twin_store.cache_simulation(db, req.user_id, req.question, result)
     return SimulateResponse(scenarios=scenarios, computation_ms=elapsed)
+
+
+@app.get("/api/v1/twin/{user_id}/health-score")
+async def health_score(user_id: str, db: Session = Depends(get_db)):
+    twin = twin_store.get(db, user_id)
+    if not twin:
+        raise HTTPException(404, "Digital Twin not found")
+    return compute_financial_health_score(twin)
 
 
 @app.get("/api/v1/schemes/{user_id}")

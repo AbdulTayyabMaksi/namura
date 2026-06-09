@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from app.agents.behavior import analyze_behavior
@@ -15,6 +14,7 @@ from app.services.llm import (
     build_twin_context,
     generate_dynamic_response,
 )
+from app.services.mandi_prices import fetch_mandi_context, is_mandi_query
 from app.services.market_data import fetch_market_context, is_market_query
 from app.simulation.monte_carlo import generate_scenarios
 
@@ -24,8 +24,8 @@ CRISIS_KEYWORDS = [
 ]
 
 SIMULATION_KEYWORDS = [
-    "should i", "what if", "loan", "borrow", "sip", "invest in",
-    "buy a house", "afford", "worth it", "कर्ज", "ऋण", "save for",
+    "should i take", "what if i", "loan", "borrow", "afford",
+    "buy a house", "worth taking", "कर्ज", "ऋण", "save for",
 ]
 
 
@@ -33,14 +33,18 @@ def classify_intent(message: str) -> dict[str, Any]:
     msg = message.lower()
     is_crisis = any(k in msg for k in CRISIS_KEYWORDS)
     is_market = is_market_query(message)
+    is_mandi = is_mandi_query(message)
     is_scheme = any(k in msg for k in ["scheme", "yojana", "benefit", "government", "pm-", "योजना"])
     is_simulation = (
         not is_market
+        and not is_mandi
         and any(k in msg for k in SIMULATION_KEYWORDS)
     )
 
     if is_crisis:
         return {"intent": "crisis", "agents": ["guard", "behavior", "risk"], "run_simulation": False}
+    if is_mandi:
+        return {"intent": "mandi", "agents": ["scheme", "behavior", "risk", "guard"], "run_simulation": False}
     if is_market:
         return {"intent": "market", "agents": ["behavior", "risk", "guard"], "run_simulation": False}
     if is_simulation:
@@ -67,9 +71,10 @@ async def process_message(
     message: str,
     voice_mode: bool = False,
     chat_history: list[dict] | None = None,
+    skip_nudge: bool = False,
 ) -> ChatResponse:
     intent = classify_intent(message)
-    agents_used = intent["agents"]
+    agents_used = list(intent["agents"])
 
     if intent["intent"] == "crisis":
         guarded = guard_response(_crisis_response(twin), is_crisis=True)
@@ -82,7 +87,7 @@ async def process_message(
     behavior = analyze_behavior(twin)
     risk = assess_risk(twin)
     goal = plan_goals(twin, message)
-    nudge = generate_nudge(twin, behavior, goal)
+    nudge = None if skip_nudge else generate_nudge(twin, behavior, goal)
     schemes = discover_schemes(twin)
 
     scenarios = None
@@ -90,8 +95,13 @@ async def process_message(
         scenarios, _ = generate_scenarios(twin, message)
 
     market_context = fetch_market_context(message)
-    if market_context and "market" not in agents_used:
-        agents_used = agents_used + ["market_data"]
+    mandi_context = fetch_mandi_context(message, twin.context.location)
+    combined_context = "\n\n".join(filter(None, [market_context, mandi_context]))
+
+    if market_context and "market_data" not in agents_used:
+        agents_used.append("market_data")
+    if mandi_context and "mandi_data" not in agents_used:
+        agents_used.append("mandi_data")
 
     twin_context = build_twin_context(twin)
     agent_context = build_agent_context(behavior, risk, goal, schemes, scenarios)
@@ -100,7 +110,7 @@ async def process_message(
         message=message,
         twin_context=twin_context,
         agent_context=agent_context,
-        market_context=market_context,
+        market_context=combined_context,
         chat_history=chat_history,
     )
 
@@ -111,7 +121,7 @@ async def process_message(
 
     audio_summary = None
     if voice_mode:
-        summary_parts = [guarded["content"][:600]]
+        summary_parts = [guarded["content"][:800]]
         if scenarios:
             summary_parts.append(
                 f"Simulator summary: Best path has {scenarios[2].debt_trap_probability:.0%} debt trap risk. "
@@ -119,12 +129,15 @@ async def process_message(
             )
         audio_summary = " ".join(summary_parts)
 
+    show_schemes = intent["intent"] in ("scheme", "general", "mandi") or bool(schemes)
+    show_nudge = nudge is not None and intent["intent"] not in ("market",)
+
     return ChatResponse(
         message=guarded["content"],
         agents_used=agents_used,
         scenarios=scenarios,
-        nudge=nudge if intent["intent"] != "market" else None,
-        schemes=schemes if intent["intent"] in ("scheme", "general") else None,
+        nudge=nudge if show_nudge else None,
+        schemes=schemes if show_schemes else None,
         disclaimer=guarded["disclaimer"],
         audio_summary=audio_summary,
     )

@@ -37,6 +37,23 @@ INDIAN_TICKER_MAP: dict[str, str] = {
     "adani": "ADANIENT.NS",
     "zomato": "ZOMATO.NS",
     "paytm": "PAYTM.NS",
+    "mrf": "MRF.NS",
+    "mrf tyres": "MRF.NS",
+    "hindustan unilever": "HINDUNILVR.NS",
+    "hul": "HINDUNILVR.NS",
+    "bajaj auto": "BAJAJ-AUTO.NS",
+    "asian paints": "ASIANPAINT.NS",
+    "nestle": "NESTLEIND.NS",
+    "hcl": "HCLTECH.NS",
+    "tech mahindra": "TECHM.NS",
+    "sun pharma": "SUNPHARMA.NS",
+    "ongc": "ONGC.NS",
+    "ntpc": "NTPC.NS",
+    "power grid": "POWERGRID.NS",
+    "coal india": "COALINDIA.NS",
+    "jio financial": "JIOFIN.NS",
+    "titan": "TITAN.NS",
+    "mahindra": "M&M.NS",
 }
 
 US_TICKER_MAP: dict[str, str] = {

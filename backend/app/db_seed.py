@@ -36,12 +36,15 @@ def _seed_personas(db: Session) -> None:
 
 def _seed_schemes(db: Session) -> None:
     for scheme in SCHEMES:
-        if db.get(GovernmentSchemeRecord, scheme["id"]):
-            continue
-        db.add(
-            GovernmentSchemeRecord(
-                id=scheme["id"],
-                name=scheme["name"],
-                data=scheme,
+        existing = db.get(GovernmentSchemeRecord, scheme["id"])
+        if existing:
+            existing.name = scheme["name"]
+            existing.data = scheme
+        else:
+            db.add(
+                GovernmentSchemeRecord(
+                    id=scheme["id"],
+                    name=scheme["name"],
+                    data=scheme,
+                )
             )
-        )

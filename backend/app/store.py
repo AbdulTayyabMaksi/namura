@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 import uuid
 
@@ -136,6 +136,22 @@ class TwinStore:
             }
             for r in reversed(records)
         ]
+
+    def has_nudge_today(self, db: Session, user_id: str) -> bool:
+        since = datetime.utcnow() - timedelta(hours=24)
+        recent = (
+            db.query(ChatMessageRecord)
+            .filter(
+                ChatMessageRecord.user_id == user_id,
+                ChatMessageRecord.role == "assistant",
+                ChatMessageRecord.created_at >= since,
+            )
+            .all()
+        )
+        for r in recent:
+            if r.metadata_ and r.metadata_.get("has_nudge"):
+                return True
+        return False
 
     def save_nudge_feedback(
         self, db: Session, user_id: str, nudge_id: str, action: str

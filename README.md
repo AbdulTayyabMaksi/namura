@@ -4,7 +4,13 @@ Multi-agent Agentic AI system that creates a living **Financial Digital Twin** f
 
 ## Features
 
+- **Dynamic AI Chat (Gemini/OpenAI/Anthropic)** — Ask any financial question; live stock data via yfinance
 - **6-Agent Architecture** — Behavior, Risk, Goal, Nudge, Scheme Discovery & Safety Guard agents
+- **Financial Health Score** — A–D grade with personalized action recommendations
+- **52+ Government Schemes** — Central + state schemes with eligibility matching
+- **Mandi Crop Prices** — Agricultural price data for Kisan persona
+- **DPDPA Privacy Panel** — Export or delete all your data
+- **Markdown Chat** — Rich formatted AI responses with scheme chips inline
 - **Future Self Simulator** — 1,000 Monte Carlo simulations across 3 parallel timelines
 - **Digital Twin Panel** — 6-dimensional radar chart with interactive 3D visualization
 - **4 Demo Personas** — Priya (Teacher), Rajesh (Gig Worker), Kisan (Farmer), Divya (Visual Impairment)

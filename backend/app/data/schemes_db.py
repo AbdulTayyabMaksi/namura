@@ -1,3 +1,5 @@
+from app.data.schemes_extra import EXTRA_SCHEMES
+
 SCHEMES = [
     {
         "id": "pm-kisan",
@@ -177,7 +179,7 @@ SCHEMES = [
         ],
         "estimated_value": 50000,
     },
-]
+] + EXTRA_SCHEMES
 
 
 def get_eligible_schemes(twin) -> list[dict]:
@@ -196,6 +198,11 @@ def get_eligible_schemes(twin) -> list[dict]:
             or any(o in occupation for o in scheme["occupations"])
             or (twin.persona_id and twin.persona_id.value in scheme["occupations"])
         )
-        if occ_match:
+        state = twin.context.location.split(",")[-1].strip().lower() if twin.context.location else ""
+        state_match = (
+            "all" in scheme.get("states", ["all"])
+            or any(s in state for s in scheme.get("states", []))
+        )
+        if occ_match and state_match:
             results.append(scheme)
-    return results[:8]
+    return results[:12]
